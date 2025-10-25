@@ -8,7 +8,7 @@ import requests # Para descargar el GeoJSON
 # --- 1. Carga y Preparación de Datos ---
 
 # URL del GeoJSON para el mapa de departamentos de Colombia
-geojson_url = "https://raw.githubusercontent.com/randy-ace/colombia-map-json/master/colombia.geo.json"
+geojson_url = "https://gist.githubusercontent.com/john-guerra/43c7656821069d00dcbc/raw/be6a6e23951b3b1d24e19570b4d5a3b8813a8a81/colombia.geo.json"
 try:
     geojson_colombia = requests.get(geojson_url).json()
     print("GeoJSON de Colombia cargado exitosamente.")
@@ -18,9 +18,9 @@ except Exception as e:
 
 # Nombres de los archivos CSV (asegúrate que estén en la misma carpeta o en una carpeta 'data/')
 # (Usando los nombres de archivo que subiste)
-file_mortality = "data/Anexo1.NoFetal2019_CE_15-03-23.xlsx - No_Fetales_2019.csv"
-file_codes = "data/Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx - Final.csv"
-file_divipola = "data/Divipola_CE_.xlsx - Hoja1.csv"
+file_mortality = "Anexo1.NoFetal2019_CE_15-03-23.xlsx - No_Fetales_2019.csv"
+file_codes = "Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx - Final.csv"
+file_divipola = "Divipola_CE_.xlsx - Hoja1.csv"
 
 # Cargar los dataframes
 try:
