@@ -8,7 +8,7 @@ import requests # Para descargar el GeoJSON
 # --- 1. Carga y Preparación de Datos ---
 
 # URL del GeoJSON para el mapa de departamentos de Colombia
-geojson_url = "https://gist.githubusercontent.com/john-guerra/43c7656821069d00dcbc/raw/be6a6e23951b3b1d24e19570b4d5a3b8813a8a81/colombia.geo.json"
+geojson_url = "https://gist.githubusercontent.com/john-guerra/43c7656821069d00dcbc/raw/3aadedf47badbdac823b00dbe259f6bc6d9e1899/colombia.geo.json"
 try:
     geojson_colombia = requests.get(geojson_url).json()
     print("GeoJSON de Colombia cargado exitosamente.")
