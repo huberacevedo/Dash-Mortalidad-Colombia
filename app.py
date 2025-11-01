@@ -18,9 +18,9 @@ except Exception as e:
 
 # Nombres de los archivos CSV (asegúrate que estén en la misma carpeta o en una carpeta 'data/')
 # (Usando los nombres de archivo que subiste)
-file_mortality = "Anexo1.NoFetal2019_CE_15-03-23.xlsx - No_Fetales_2019.csv"
-file_codes = "Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx - Final.csv"
-file_divipola = "Divipola_CE_.xlsx - Hoja1.csv"
+file_mortality = "Anexo1.NoFetal2019_CE_15-03-23 - No_Fetales_2019.csv"
+file_codes = "Anexo2.CodigosDeMuerte_CE_15-03-23 - Final.csv"
+file_divipola = "Divipola_CE_- Hoja1.csv"
 
 # Cargar los dataframes
 try:
