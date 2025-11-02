@@ -3,49 +3,57 @@ from dash import dcc, html, dash_table
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import pandas as pd
-import requests # Para descargar el GeoJSON
+import json # Importamos JSON para leer el archivo local
 
 # --- 1. Carga y Preparación de Datos ---
 
-# URL del GeoJSON para el mapa de departamentos de Colombia
-# --- CAMBIO 1: Usamos una URL de Gist más estable que no es bloqueada ---
-geojson_url = "https://gist.githubusercontent.com/john-guerra/43c7656821069d00dcbc/raw/be6a6e23951b3b1d34b7113b53a801121d1d8f8c/colombia.geo.json"
-
+# --- Cargar el GeoJSON desde un archivo local ---
+# (Asegúrate de subir el archivo 'colombia.geo.json' a tu GitHub)
 try:
-    geojson_colombia = requests.get(geojson_url).json()
-    print("GeoJSON de Colombia (Gist) cargado exitosamente.")
+    with open('colombia.geo.json', 'r', encoding='utf-8') as f:
+        geojson_colombia = json.load(f)
+    print("GeoJSON de Colombia (local) cargado exitosamente.")
 except Exception as e:
-    print(f"Error al descargar o procesar el GeoJSON: {e}")
+    print(f"Error al cargar el GeoJSON local: {e}")
     geojson_colombia = None
 
-# Nombres de los archivos CSV
-# --- CAMBIO 2: Se usa la ruta 'Data/' (con 'D' mayúscula) para que coincida con tu repositorio de GitHub ---
-file_mortality = "Data/Anexo1.NoFetal2019_CE_15-03-23.xlsx - No_Fetales_2019.csv"
-file_codes = "Data/Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx - Final.csv"
-file_divipola = "Data/Divipola_CE_.xlsx - Hoja1.csv"
+# Nombres de los archivos Excel
+# --- Apuntamos a los archivos .xlsx en la RAÍZ ---
+file_mortality = "Anexo1.NoFetal2019_CE_15-03-23.xlsx"
+file_codes = "Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx"
+file_divipola = "Divipola_CE_.xlsx"
 
 # Cargar los dataframes
 try:
+    # --- Usamos pd.read_excel() ---
+    
     # df_mort: Datos de mortalidad
-    df_mort = pd.read_csv(file_mortality, dtype={'COD_DANE': str})
+    # (Asegúrate de que la hoja se llame 'No_Fetales_2019')
+    df_mort = pd.read_excel(file_mortality, sheet_name='No_Fetales_2019', dtype={'COD_DANE': str})
     
     # df_codes: Códigos de muerte
-    df_codes = pd.read_csv(file_codes, skiprows=8)
+    # (Asegúrate de que la hoja se llame 'Final')
+    df_codes = pd.read_excel(file_codes, sheet_name='Final', skiprows=8)
     df_codes = df_codes.rename(columns={
         'Código de la CIE-10 cuatro caracteres': 'COD_MUERTE',
         'Descripcion  de códigos mortalidad a cuatro caracteres': 'CAUSA_MUERTE_NOMBRE'
     })
     
     # df_divipola: Nombres de municipios y departamentos
-    df_divipola = pd.read_csv(file_divipola, dtype={'COD_DANE': str})
+    # (Asegúrate de que la hoja se llame 'Hoja1')
+    df_divipola = pd.read_excel(file_divipola, sheet_name='Hoja1', dtype={'COD_DANE': str})
     
-    print("Archivos CSV cargados exitosamente desde la carpeta 'Data/'.")
+    print("Archivos Excel (.xlsx) cargados exitosamente desde la RAÍZ.")
 
 except FileNotFoundError as e:
-    print(f"Error: No se encontró el archivo {e.filename}. Asegúrate de que los archivos CSV estén en el directorio 'Data/' (con D mayúscula).")
+    print(f"Error: No se encontró el archivo {e.filename}. Asegúrate de que los archivos Excel estén en el directorio RAÍZ.")
+except Exception as e:
+    # Este error es común si los nombres de las hojas (sheet_name) son incorrectos
+    print(f"Error al leer los archivos Excel: {e}. Asegúrate de que los nombres de las hojas sean correctos ('No_Fetales_2019', 'Final', 'Hoja1').")
     df_mort = pd.DataFrame()
     df_codes = pd.DataFrame()
     df_divipola = pd.DataFrame()
+
 
 # --- Procesamiento y Merges ---
 if not df_mort.empty and not df_divipola.empty:
@@ -55,6 +63,7 @@ if not df_mort.empty and not df_divipola.empty:
         on='COD_DANE',
         how='left'
     )
+    # Limpieza de nombres de departamento para que coincidan con el GeoJSON
     df_full['DEPARTAMENTO'] = df_full['DEPARTAMENTO'].str.upper().str.strip()
 else:
     df_full = pd.DataFrame() 
@@ -68,18 +77,17 @@ def create_map(df):
         
     deaths_by_dept = df.groupby('DEPARTAMENTO').size().reset_index(name='Total Muertes')
     
-    # Corrección de nombres para que coincidan con el GeoJSON (el Gist usa BOGOTÁ, D.C.)
+    # Corrección de nombres para que coincidan con el GeoJSON
     deaths_by_dept['DEPARTAMENTO'] = deaths_by_dept['DEPARTAMENTO'].replace({
         'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA',
         'BOGOTÁ, D.C.': 'BOGOTÁ, D.C.'
     })
     
-    # El 'featureidkey' 'DPTO_CNMBR' es correcto para el GeoJSON de Gist
     fig = px.choropleth_mapbox(
         deaths_by_dept,
         geojson=geojson_colombia,
         locations='DEPARTAMENTO',
-        featureidkey="properties.DPTO_CNMBR", # Esto es correcto para el Gist
+        featureidkey="properties.DPTO_CNMBR", # 'featureidkey' para el GeoJSON local
         color='Total Muertes',
         color_continuous_scale="Viridis",
         mapbox_style="carto-positron",
@@ -117,6 +125,7 @@ def create_violent_cities_chart(df):
     if df.empty:
         return dcc.Graph(figure=px.bar(title="Datos no disponibles"))
         
+    # Filtramos por códigos de homicidio (Asalto con disparo de arma de fuego)
     homicides_df = df[df['COD_MUERTE'].str.startswith('X95', na=False)]
     
     violent_cities = homicides_df.groupby('MUNICIPIO').size().reset_index(name='Total Homicidios (X95)')
@@ -138,7 +147,8 @@ def create_low_mortality_chart(df):
         return dcc.Graph(figure=px.bar(title="Datos no disponibles"))
         
     deaths_by_city = df.groupby('MUNICIPIO').size().reset_index(name='Total Muertes')
-    deaths_by_city = deaths_by_city[deaths_by_city['Total Muertes'] > 0]
+    # Filtramos municipios con 0 muertes si los hubiera
+    deaths_by_city = deaths_by_city[deaths_by_city['Total Muertes'] > 0] 
     
     bottom_10_cities = deaths_by_city.sort_values(by='Total Muertes', ascending=True).head(10)
     
@@ -198,13 +208,13 @@ def create_sex_by_dept_chart(df):
     deaths_by_dept_sex = df.groupby(['DEPARTAMENTO', 'SEXO']).size().reset_index(name='Total')
     
     sex_map = {1: 'Hombre', 2: 'Mujer', 9: 'Desconocido'}
-    deaths_by_dept_sex['SEXO_ NOMBRE'] = deaths_by_dept_sex['SEXO'].map(sex_map).fillna('Desconocido')
+    deaths_by_dept_sex['SEXO_NOMBRE'] = deaths_by_dept_sex['SEXO'].map(sex_map).fillna('Desconocido')
     
     fig = px.bar(
         deaths_by_dept_sex,
         x='DEPARTAMENTO',
         y='Total',
-        color='SEXO_ NOMBRE',
+        color='SEXO_NOMBRE',
         title="Total de Muertes por Sexo y Departamento",
         barmode='stack'
     )
@@ -241,6 +251,7 @@ def create_age_histogram(df):
     age_distribution = df['GRUPO_EDAD_CAT'].value_counts().reset_index()
     age_distribution.columns = ['Grupo de Edad', 'Total Muertes']
     
+    # Convertir a tipo categórico para ordenar correctamente
     age_distribution['Grupo de Edad'] = pd.Categorical(
         age_distribution['Grupo de Edad'],
         categories=category_order,
@@ -266,16 +277,18 @@ server = app.server
 app.layout = dbc.Container(
     fluid=True,
     children=[
+        # Fila de Título
         dbc.Row(
             dbc.Col(
                 html.H1(
                     "Dashboard de Mortalidad en Colombia - 2019",
-                    className="text-center text-primary, mb-4 mt-4"
+                    className="text-center text-primary, mb-4 mt-4" # Clases de Bootstrap
                 ),
                 width=12
             )
         ),
         
+        # Fila 1: Mapa y Gráfico de Líneas
         dbc.Row(
             [
                 dbc.Col(create_map(df_full), width=12, md=7, className="mb-4"),
@@ -284,6 +297,7 @@ app.layout = dbc.Container(
             align="center"
         ),
         
+        # Fila 2: Barras Apiladas (Sexo) e Histograma (Edad)
         dbc.Row(
             [
                 dbc.Col(create_sex_by_dept_chart(df_full), width=12, lg=7, className="mb-4"),
@@ -292,6 +306,7 @@ app.layout = dbc.Container(
             align="center"
         ),
         
+        # Fila 3: Tabla de Causas
         dbc.Row(
             dbc.Col(
                 [
@@ -303,6 +318,7 @@ app.layout = dbc.Container(
             )
         ),
         
+        # Fila 4: Ciudades Violentas y Menor Mortalidad
         dbc.Row(
             [
                 dbc.Col(create_violent_cities_chart(df_full), width=12, md=6, className="mb-4"),
@@ -316,3 +332,4 @@ app.layout = dbc.Container(
 # --- 5. Ejecución de la App ---
 if __name__ == '__main__':
     app.run_server(debug=True)
+
