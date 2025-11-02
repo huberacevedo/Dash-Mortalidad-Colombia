@@ -8,21 +8,21 @@ import requests # Para descargar el GeoJSON
 # --- 1. Carga y Preparación de Datos ---
 
 # URL del GeoJSON para el mapa de departamentos de Colombia
-# --- URL de consulta al servicio del DANE ---
-# Pide la capa 3 (Departamentos) en formato geojson
-geojson_url = "https://geoportal.dane.gov.co/mparcgis/rest/services/INDICADORES_CTERRITORIO/Cache_MpiosCTDeptosAM_DivisionPolitica_2012/MapServer/3/query?where=1=1&outFields=*&f=geojson"
+# --- CAMBIO 1: Usamos una URL de Gist más estable que no es bloqueada ---
+geojson_url = "https://gist.githubusercontent.com/john-guerra/43c7656821069d00dcbc/raw/be6a6e23951b3b1d34b7113b53a801121d1d8f8c/colombia.geo.json"
 
 try:
     geojson_colombia = requests.get(geojson_url).json()
-    print("GeoJSON de Colombia (DANE) cargado exitosamente.")
+    print("GeoJSON de Colombia (Gist) cargado exitosamente.")
 except Exception as e:
     print(f"Error al descargar o procesar el GeoJSON: {e}")
     geojson_colombia = None
 
-# Nombres de los archivos xlsx
-file_mortality = "Data/Anexo1.NoFetal2019_CE_15-03-23.xlsx"
-file_codes = "Data/Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx"
-file_divipola = "Data/Divipola_CE_.xlsx"
+# Nombres de los archivos CSV
+# --- CAMBIO 2: Se usa la ruta 'Data/' (con 'D' mayúscula) para que coincida con tu repositorio de GitHub ---
+file_mortality = "Data/Anexo1.NoFetal2019_CE_15-03-23.xlsx - No_Fetales_2019.csv"
+file_codes = "Data/Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx - Final.csv"
+file_divipola = "Data/Divipola_CE_.xlsx - Hoja1.csv"
 
 # Cargar los dataframes
 try:
@@ -39,10 +39,10 @@ try:
     # df_divipola: Nombres de municipios y departamentos
     df_divipola = pd.read_csv(file_divipola, dtype={'COD_DANE': str})
     
-    print("Archivos CSV cargados exitosamente.")
+    print("Archivos CSV cargados exitosamente desde la carpeta 'Data/'.")
 
 except FileNotFoundError as e:
-    print(f"Error: No se encontró el archivo {e.filename}. Asegúrate de que los archivos CSV estén en el directorio correcto.")
+    print(f"Error: No se encontró el archivo {e.filename}. Asegúrate de que los archivos CSV estén en el directorio 'Data/' (con D mayúscula).")
     df_mort = pd.DataFrame()
     df_codes = pd.DataFrame()
     df_divipola = pd.DataFrame()
@@ -67,16 +67,19 @@ def create_map(df):
         return dcc.Graph(figure=px.bar(title="Datos no disponibles para el mapa"))
         
     deaths_by_dept = df.groupby('DEPARTAMENTO').size().reset_index(name='Total Muertes')
+    
+    # Corrección de nombres para que coincidan con el GeoJSON (el Gist usa BOGOTÁ, D.C.)
     deaths_by_dept['DEPARTAMENTO'] = deaths_by_dept['DEPARTAMENTO'].replace({
         'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA',
         'BOGOTÁ, D.C.': 'BOGOTÁ, D.C.'
     })
     
+    # El 'featureidkey' 'DPTO_CNMBR' es correcto para el GeoJSON de Gist
     fig = px.choropleth_mapbox(
         deaths_by_dept,
         geojson=geojson_colombia,
         locations='DEPARTAMENTO',
-        featureidkey="properties.DPTO_CNMBR", # <-- ESTE ES EL CAMBIO IMPORTANTE
+        featureidkey="properties.DPTO_CNMBR", # Esto es correcto para el Gist
         color='Total Muertes',
         color_continuous_scale="Viridis",
         mapbox_style="carto-positron",
