@@ -28,9 +28,9 @@ except Exception as e:
 
 # Nombres de los archivos Excel
 # Apuntamos a los archivos .xlsx
-file_mortality = "Anexo1.NoFetal2019_CE_15-03-23.xlsx"
-file_codes = "Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx"
-file_divipola = "Divipola_CE_.xlsx"
+file_mortality = "data/Anexo1.NoFetal2019_CE_15-03-23.xlsx"
+file_codes = "data/Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx"
+file_divipola = "data/Divipola_CE_.xlsx"
 
 # Cargar los dataframes
 try:
@@ -55,10 +55,10 @@ try:
     df_mort['COD_DANE'] = df_mort['COD_DANE'].astype(str).str.strip()
     df_divipola['COD_DANE'] = df_divipola['COD_DANE'].astype(str).str.strip()
     
-    print("Archivos Excel (.xlsx) cargados exitosamente")
+    print("Archivos Excel (.xlsx) cargados exitosamente desde la carpeta data")
 
 except FileNotFoundError as e:
-    print(f"Error: No se encontró el archivo {e.filename}. Asegúrate de que los archivos Excel estén en el directorio")
+    print(f"Error: No se encontró el archivo {e.filename}. Asegúrate de que los archivos Excel estén en el directorio data")
 except Exception as e:
     # Este error es para alertar si los nombres de las hojas (sheet_name) son incorrectos
     print(f"Error al leer los archivos Excel: {e}. Asegúrate de que los nombres de las hojas sean correctos ('No_Fetales_2019', 'Final', 'Hoja1').")
