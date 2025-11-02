@@ -128,7 +128,7 @@ def create_map(df):
         deaths_by_dept,
         geojson=geojson_colombia,         # El mapa de fondo (local)
         locations='DEPARTAMENTO',         # Columna con los nombres a mapear
-        featureidkey="properties.DPTO_CNMBR", # CORREGIDO: Clave del nuevo GeoJSON
+        featureidkey="properties.NOMBRE_DPT", # Clave del GeoJSON
         color='Total Muertes',            # Columna que define el color
         color_continuous_scale="Viridis", # Escala de color
         mapbox_style="carto-positron",    # Estilo del mapa base
