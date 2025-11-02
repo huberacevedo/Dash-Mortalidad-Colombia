@@ -101,7 +101,20 @@ def create_map(df):
     
     # 2. Normalizamos los nombres de los departamentos
     # Este mapa maneja todas las tildes y nombres especiales.
-    name_map = {
+name_map = {
+        # Tildes
+        'BOGOTA, D.C.': 'BOGOTÁ, D.C.',
+        'BOLIVAR': 'BOLÍVAR',
+        'BOYACA': 'BOYACÁ',
+        'CAQUETA': 'CAQUETÁ',
+        'CHOCO': 'CHOCÓ',
+        'CORDOBA': 'CÓRDOBA',
+        'GUAINIA': 'GUAINÍA',
+        'NARINO': 'NARIÑO',
+        'QUINDIO': 'QUINDÍO',
+        'VAUPES': 'VAUPÉS',
+        
+        # Nombres especiales (Mapeo completo)
         'VALLE': 'VALLE DEL CAUCA',
         'GUAJIRA': 'LA GUAJIRA',
         'SAN ANDRES, PROVIDENCIA Y SANTA CATALINA': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA'
