@@ -2,5 +2,5 @@ dash
 dash-bootstrap-components
 plotly
 pandas
-requests
 gunicorn
+openpyxl
