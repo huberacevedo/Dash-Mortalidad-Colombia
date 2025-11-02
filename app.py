@@ -101,7 +101,7 @@ def create_map(df):
     
     # 2. Normalizamos los nombres de los departamentos
     # Este mapa maneja todas las tildes y nombres especiales.
-name_map = {
+    name_map = {
         # Tildes
         'BOGOTA, D.C.': 'BOGOTÁ, D.C.',
         'BOLIVAR': 'BOLÍVAR',
@@ -119,7 +119,7 @@ name_map = {
         'GUAJIRA': 'LA GUAJIRA',
         'SAN ANDRES, PROVIDENCIA Y SANTA CATALINA': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA'
     }
-    # Aplicamos el reemplazo
+ # Aplicamos el reemplazo
     deaths_by_dept['DEPARTAMENTO'] = deaths_by_dept['DEPARTAMENTO'].replace(name_map)
     
     # 3. Creamos el mapa coroplético
@@ -127,7 +127,7 @@ name_map = {
         deaths_by_dept,
         geojson=geojson_colombia,         # El mapa de fondo (local)
         locations='DEPARTAMENTO',         # Columna con los nombres a mapear
-        featureidkey="properties.NOMBRE_DPT", # Clave del GeoJSON
+        featureidkey="properties.NOMBRE_DPT", # Clave para el GeoJSON
         color='Total Muertes',            # Columna que define el color
         color_continuous_scale="Viridis", # Escala de color
         mapbox_style="carto-positron",    # Estilo del mapa base
