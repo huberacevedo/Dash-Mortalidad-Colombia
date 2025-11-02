@@ -1,3 +1,11 @@
+# ==============================================================================
+# Dashboard de mortalidad en Colombia
+# Maestria en IA - Aplicaciones I - Universidad de la Salle
+# Presentado por: Huber Duvier Acevedo Hernandez y Laura Ximena Tirado Rairan
+# Docente: Cristian Duney Bermudez Quintero
+# Noviembre de 2025
+# ==============================================================================
+
 import dash
 from dash import dcc, html, dash_table
 import dash_bootstrap_components as dbc
@@ -5,9 +13,9 @@ import plotly.express as px
 import pandas as pd
 import json # Importamos JSON para leer el archivo local
 
-# --- 1. Carga y Preparación de Datos ---
+# Carga y Preparación de Datos
 
-# --- Cargar el GeoJSON desde un archivo local ---
+# Carga del GeoJSON desde un archivo local
 # Se carga el mapa de Colombia desde un archivo 'colombia.geo.json' local.
 # Esto evita problemas de red y bloqueos de URLs externas.
 try:
@@ -19,7 +27,7 @@ except Exception as e:
     geojson_colombia = None
 
 # Nombres de los archivos Excel
-# Apuntamos a los archivos .xlsx en la RAÍZ del repositorio
+# Apuntamos a los archivos .xlsx
 file_mortality = "Anexo1.NoFetal2019_CE_15-03-23.xlsx"
 file_codes = "Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx"
 file_divipola = "Divipola_CE_.xlsx"
@@ -29,11 +37,9 @@ try:
     # Usamos pd.read_excel() y la librería openpyxl (definida en requirements.txt)
     
     # df_mort: Datos de mortalidad
-    # (Asegúrate de que la hoja se llame 'No_Fetales_2019')
     df_mort = pd.read_excel(file_mortality, sheet_name='No_Fetales_2019', dtype={'COD_DANE': str})
     
     # df_codes: Códigos de muerte
-    # (Asegúrate de que la hoja se llame 'Final')
     # Saltamos las primeras 8 filas de encabezado del archivo Excel
     df_codes = pd.read_excel(file_codes, sheet_name='Final', skiprows=8)
     # Renombramos columnas para que sean más fáciles de usar
@@ -43,29 +49,25 @@ try:
     })
     
     # df_divipola: Nombres de municipios y departamentos
-    # (Asegúrate de que la hoja se llame 'Hoja1')
     df_divipola = pd.read_excel(file_divipola, sheet_name='Hoja1', dtype={'COD_DANE': str})
     
-    # --- INICIO DE LA CORRECCIÓN DE MERGE ---
-    # Limpieza agresiva de las claves de 'COD_DANE' para eliminar espacios en blanco
-    # que puedan estar rompiendo el merge silenciosamente.
+    # Limpieza de las claves de 'COD_DANE' para eliminar espacios en blanco
     df_mort['COD_DANE'] = df_mort['COD_DANE'].astype(str).str.strip()
     df_divipola['COD_DANE'] = df_divipola['COD_DANE'].astype(str).str.strip()
-    # --- FIN DE LA CORRECCIÓN DE MERGE ---
     
-    print("Archivos Excel (.xlsx) cargados exitosamente desde la RAÍZ.")
+    print("Archivos Excel (.xlsx) cargados exitosamente")
 
 except FileNotFoundError as e:
-    print(f"Error: No se encontró el archivo {e.filename}. Asegúrate de que los archivos Excel estén en el directorio RAÍZ.")
+    print(f"Error: No se encontró el archivo {e.filename}. Asegúrate de que los archivos Excel estén en el directorio")
 except Exception as e:
-    # Este error es común si los nombres de las hojas (sheet_name) son incorrectos
+    # Este error es para alertar si los nombres de las hojas (sheet_name) son incorrectos
     print(f"Error al leer los archivos Excel: {e}. Asegúrate de que los nombres de las hojas sean correctos ('No_Fetales_2019', 'Final', 'Hoja1').")
     df_mort = pd.DataFrame()
     df_codes = pd.DataFrame()
     df_divipola = pd.DataFrame()
 
 
-# --- Procesamiento y Merges ---
+# Procesamiento y Merges
 # Se unen los datos de mortalidad (df_mort) con los de división política (df_divipola)
 # para obtener los nombres de DEPARTAMENTO y MUNICIPIO.
 if not df_mort.empty and not df_divipola.empty:
@@ -75,8 +77,8 @@ if not df_mort.empty and not df_divipola.empty:
         on='COD_DANE',
         how='left'
     )
-    # --- CORRECCIÓN ADICIONAL ---
-    # Nos aseguramos de eliminar filas donde el merge falló y 'DEPARTAMENTO' es Nulo
+ 
+    # Eliminamos filas donde el merge falló y 'DEPARTAMENTO' es Nulo
     df_full = df_full.dropna(subset=['DEPARTAMENTO'])
     
     # Se limpian y estandarizan los nombres de departamento
@@ -84,7 +86,7 @@ if not df_mort.empty and not df_divipola.empty:
 else:
     df_full = pd.DataFrame() 
 
-# --- 2. Creación de Gráficos (Funciones) ---
+# Creación de Gráficos (Funciones)
 
 # ==============================================================================
 # Gráfico 1: Mapa
@@ -97,8 +99,8 @@ def create_map(df):
     # 1. Agrupamos los datos para contar el total de muertes por departamento
     deaths_by_dept = df.groupby('DEPARTAMENTO').size().reset_index(name='Total Muertes')
     
-    # 2. CORRECCIÓN: Normalizamos los nombres de los departamentos
-    # Este mapa es súper robusto para manejar TODAS las tildes y nombres especiales.
+    # 2. Normalizamos los nombres de los departamentos
+    # Este mapa maneja todas las tildes y nombres especiales.
     name_map = {
         # Tildes
         'BOGOTA, D.C.': 'BOGOTÁ, D.C.',
@@ -114,7 +116,7 @@ def create_map(df):
         'VAUPES': 'VAUPÉS',
         
         # Nombres especiales
-        'VALLE': 'VALLE DEL CAUCA', # <-- CORREGIDO: 'Cauca' a 'CAUCA'
+        'VALLE': 'VALLE DEL CAUCA', 
         'GUAJIRA': 'LA GUAJIRA',
         'SAN ANDRES, PROVIDENCIA Y SANTA CATALINA': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA'
     }
@@ -139,7 +141,7 @@ def create_map(df):
     return dcc.Graph(figure=fig)
 
 # ==============================================================================
-# REQUISITO 2: Gráfico de líneas
+# GRÁFICO 2: Gráfico de líneas
 # Representación del total de muertes por mes.
 # ==============================================================================
 def create_line_chart(df):
@@ -167,7 +169,7 @@ def create_line_chart(df):
     return dcc.Graph(figure=fig)
 
 # ==============================================================================
-# REQUISITO 3: Gráfico de barras
+# GRÁFICO 3: Gráfico de barras
 # Visualización de las 5 ciudades más violentas (códigos X95).
 # ==============================================================================
 def create_violent_cities_chart(df):
@@ -195,7 +197,7 @@ def create_violent_cities_chart(df):
     return dcc.Graph(figure=fig)
 
 # ==============================================================================
-# REQUISITO 4: Gráfico circular
+# GRÁFICO 4: Gráfico circular
 # Muestra las 10 ciudades con menor índice de mortalidad.
 # ==============================================================================
 def create_low_mortality_chart(df):
@@ -222,7 +224,7 @@ def create_low_mortality_chart(df):
     return dcc.Graph(figure=fig)
 
 # ==============================================================================
-# REQUISITO 5: Tabla
+# GRÁFICO 5: Tabla
 # Listado de las 10 principales causas de muerte (código, nombre, total).
 # ==============================================================================
 def create_causes_table(df_mort, df_codes):
@@ -270,7 +272,7 @@ def create_causes_table(df_mort, df_codes):
     )
 
 # ==============================================================================
-# REQUISITO 6: Gráfico de barras apiladas
+# GRÁFICO 6: Gráfico de barras apiladas
 # Comparación del total de muertes por sexo en cada departamento.
 # ==============================================================================
 def create_sex_by_dept_chart(df):
@@ -297,7 +299,7 @@ def create_sex_by_dept_chart(df):
     return dcc.Graph(figure=fig)
 
 # ==============================================================================
-# REQUISITO 7: Histograma
+# GRÁFICO 7: Histograma
 # Distribución de muertes por GRUPO_EDAD1.
 # ==============================================================================
 def create_age_histogram(df):
@@ -352,11 +354,11 @@ def create_age_histogram(df):
     return dcc.Graph(figure=fig)
 
 
-# --- 3. Inicialización de la App Dash ---
+# Inicialización de la App Dash
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server # Necesario para el despliegue en Gunicorn
 
-# --- 4. Layout de la Aplicación ---
+# Layout de la Aplicación
 # Se define la estructura de la página web usando Dash Bootstrap Components (dbc)
 app.layout = dbc.Container(
     fluid=True,
@@ -372,7 +374,7 @@ app.layout = dbc.Container(
             )
         ),
         
-        # Fila 1: Mapa (Requisito 1) y Gráfico de Líneas (Requisito 2)
+        # Fila 1: Mapa (Gráfico 1) y Gráfico de Líneas (Gráfico 2)
         dbc.Row(
             [
                 dbc.Col(create_map(df_full), width=12, md=7, className="mb-4"),
@@ -381,7 +383,7 @@ app.layout = dbc.Container(
             align="center"
         ),
         
-        # Fila 2: Barras Apiladas (Requisito 6) e Histograma (Requisito 7)
+        # Fila 2: Barras Apiladas (Gráfico 6) e Histograma (Gráfico 7)
         dbc.Row(
             [
                 dbc.Col(create_sex_by_dept_chart(df_full), width=12, lg=7, className="mb-4"),
@@ -390,7 +392,7 @@ app.layout = dbc.Container(
             align="center"
         ),
         
-        # Fila 3: Tabla de Causas (Requisito 5)
+        # Fila 3: Tabla de Causas (Gráfico 5)
         dbc.Row(
             dbc.Col(
                 [
@@ -402,7 +404,7 @@ app.layout = dbc.Container(
             )
         ),
         
-        # Fila 4: Ciudades Violentas (Requisito 3) y Menor Mortalidad (Requisito 4)
+        # Fila 4: Ciudades Violentas (Gráfico 3) y Menor Mortalidad (Gráfico 4)
         dbc.Row(
             [
                 dbc.Col(create_violent_cities_chart(df_full), width=12, md=6, className="mb-4"),
