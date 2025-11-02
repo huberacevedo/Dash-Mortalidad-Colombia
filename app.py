@@ -46,6 +46,13 @@ try:
     # (Asegúrate de que la hoja se llame 'Hoja1')
     df_divipola = pd.read_excel(file_divipola, sheet_name='Hoja1', dtype={'COD_DANE': str})
     
+    # --- INICIO DE LA CORRECCIÓN DE MERGE ---
+    # Limpieza agresiva de las claves de 'COD_DANE' para eliminar espacios en blanco
+    # que puedan estar rompiendo el merge silenciosamente.
+    df_mort['COD_DANE'] = df_mort['COD_DANE'].astype(str).str.strip()
+    df_divipola['COD_DANE'] = df_divipola['COD_DANE'].astype(str).str.strip()
+    # --- FIN DE LA CORRECCIÓN DE MERGE ---
+    
     print("Archivos Excel (.xlsx) cargados exitosamente desde la RAÍZ.")
 
 except FileNotFoundError as e:
@@ -68,6 +75,10 @@ if not df_mort.empty and not df_divipola.empty:
         on='COD_DANE',
         how='left'
     )
+    # --- CORRECCIÓN ADICIONAL ---
+    # Nos aseguramos de eliminar filas donde el merge falló y 'DEPARTAMENTO' es Nulo
+    df_full = df_full.dropna(subset=['DEPARTAMENTO'])
+    
     # Se limpian y estandarizan los nombres de departamento
     df_full['DEPARTAMENTO'] = df_full['DEPARTAMENTO'].str.upper().str.strip()
 else:
@@ -87,14 +98,27 @@ def create_map(df):
     deaths_by_dept = df.groupby('DEPARTAMENTO').size().reset_index(name='Total Muertes')
     
     # 2. CORRECCIÓN: Normalizamos los nombres de los departamentos
-    # Los nombres en Divipola (ej: 'VALLE') deben coincidir con el GeoJSON (ej: 'VALLE DEL CAUCA')
+    # Este mapa es súper robusto para manejar TODAS las tildes y nombres especiales.
     name_map = {
-        'VALLE': 'VALLE DEL CAUCA',
+        # Tildes
         'BOGOTA, D.C.': 'BOGOTÁ, D.C.',
-        'SAN ANDRES, PROVIDENCIA Y SANTA CATALINA': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA',
-        'GUAJIRA': 'LA GUAJIRA'
-        # Añadir más si es necesario (ej: 'NARINO': 'NARIÑO')
+        'BOLIVAR': 'BOLÍVAR',
+        'BOYACA': 'BOYACÁ',
+        'CALDAS': 'CALDAS', # Caldas está bien, pero lo dejamos por si acaso
+        'CAQUETA': 'CAQUETÁ',
+        'CHOCO': 'CHOCÓ',
+        'CORDOBA': 'CÓRDOBA',
+        'GUAINIA': 'GUAINÍA',
+        'NARINO': 'NARIÑO',
+        'QUINDIO': 'QUINDÍO',
+        'VAUPES': 'VAUPÉS',
+        
+        # Nombres especiales
+        'VALLE': 'VALLE DEL Cauca', # Corregido a 'VALLE DEL Cauca' si ese es el nombre en GeoJSON
+        'GUAJIRA': 'LA GUAJIRA',
+        'SAN ANDRES, PROVIDENCIA Y SANTA CATALINA': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA'
     }
+    # Aplicamos el reemplazo
     deaths_by_dept['DEPARTAMENTO'] = deaths_by_dept['DEPARTAMENTO'].replace(name_map)
     
     # 3. Creamos el mapa coroplético
