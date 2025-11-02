@@ -8,7 +8,8 @@ import json # Importamos JSON para leer el archivo local
 # --- 1. Carga y Preparación de Datos ---
 
 # --- Cargar el GeoJSON desde un archivo local ---
-# (Asegúrate de subir el archivo 'colombia.geo.json' a tu GitHub)
+# Se carga el mapa de Colombia desde un archivo 'colombia.geo.json' local.
+# Esto evita problemas de red y bloqueos de URLs externas.
 try:
     with open('colombia.geo.json', 'r', encoding='utf-8') as f:
         geojson_colombia = json.load(f)
@@ -18,14 +19,14 @@ except Exception as e:
     geojson_colombia = None
 
 # Nombres de los archivos Excel
-# --- Apuntamos a los archivos .xlsx en la RAÍZ ---
+# Apuntamos a los archivos .xlsx en la RAÍZ del repositorio
 file_mortality = "Anexo1.NoFetal2019_CE_15-03-23.xlsx"
 file_codes = "Anexo2.CodigosDeMuerte_CE_15-03-23.xlsx"
 file_divipola = "Divipola_CE_.xlsx"
 
 # Cargar los dataframes
 try:
-    # --- Usamos pd.read_excel() ---
+    # Usamos pd.read_excel() y la librería openpyxl (definida en requirements.txt)
     
     # df_mort: Datos de mortalidad
     # (Asegúrate de que la hoja se llame 'No_Fetales_2019')
@@ -33,7 +34,9 @@ try:
     
     # df_codes: Códigos de muerte
     # (Asegúrate de que la hoja se llame 'Final')
+    # Saltamos las primeras 8 filas de encabezado del archivo Excel
     df_codes = pd.read_excel(file_codes, sheet_name='Final', skiprows=8)
+    # Renombramos columnas para que sean más fáciles de usar
     df_codes = df_codes.rename(columns={
         'Código de la CIE-10 cuatro caracteres': 'COD_MUERTE',
         'Descripcion  de códigos mortalidad a cuatro caracteres': 'CAUSA_MUERTE_NOMBRE'
@@ -56,6 +59,8 @@ except Exception as e:
 
 
 # --- Procesamiento y Merges ---
+# Se unen los datos de mortalidad (df_mort) con los de división política (df_divipola)
+# para obtener los nombres de DEPARTAMENTO y MUNICIPIO.
 if not df_mort.empty and not df_divipola.empty:
     df_full = pd.merge(
         df_mort,
@@ -63,74 +68,98 @@ if not df_mort.empty and not df_divipola.empty:
         on='COD_DANE',
         how='left'
     )
-    # Limpieza de nombres de departamento para que coincidan con el GeoJSON
+    # Se limpian y estandarizan los nombres de departamento
     df_full['DEPARTAMENTO'] = df_full['DEPARTAMENTO'].str.upper().str.strip()
 else:
     df_full = pd.DataFrame() 
 
 # --- 2. Creación de Gráficos (Funciones) ---
 
-# Gráfico 1: Mapa - Muertes por Departamento
+# ==============================================================================
+# REQUISITO 1: Mapa
+# Visualización de la distribución total de muertes por departamento.
+# ==============================================================================
 def create_map(df):
     if df.empty or geojson_colombia is None:
         return dcc.Graph(figure=px.bar(title="Datos no disponibles para el mapa"))
         
+    # 1. Agrupamos los datos para contar el total de muertes por departamento
     deaths_by_dept = df.groupby('DEPARTAMENTO').size().reset_index(name='Total Muertes')
     
-    # Corrección de nombres para que coincidan con el GeoJSON
-    deaths_by_dept['DEPARTAMENTO'] = deaths_by_dept['DEPARTAMENTO'].replace({
-        'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA',
-        'BOGOTÁ, D.C.': 'BOGOTÁ, D.C.'
-    })
+    # 2. CORRECCIÓN: Normalizamos los nombres de los departamentos
+    # Los nombres en Divipola (ej: 'VALLE') deben coincidir con el GeoJSON (ej: 'VALLE DEL CAUCA')
+    name_map = {
+        'VALLE': 'VALLE DEL CAUCA',
+        'BOGOTA, D.C.': 'BOGOTÁ, D.C.',
+        'SAN ANDRES, PROVIDENCIA Y SANTA CATALINA': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA',
+        'GUAJIRA': 'LA GUAJIRA'
+        # Añadir más si es necesario (ej: 'NARINO': 'NARIÑO')
+    }
+    deaths_by_dept['DEPARTAMENTO'] = deaths_by_dept['DEPARTAMENTO'].replace(name_map)
     
+    # 3. Creamos el mapa coroplético
     fig = px.choropleth_mapbox(
         deaths_by_dept,
-        geojson=geojson_colombia,
-        locations='DEPARTAMENTO',
-        featureidkey="properties.DPTO_CNMBR", # 'featureidkey' para el GeoJSON local
-        color='Total Muertes',
-        color_continuous_scale="Viridis",
-        mapbox_style="carto-positron",
-        zoom=4,
-        center={"lat": 4.5709, "lon": -74.2973},
+        geojson=geojson_colombia,         # El mapa de fondo (local)
+        locations='DEPARTAMENTO',         # Columna con los nombres a mapear
+        featureidkey="properties.DPTO_CNMBR", # Llave en el GeoJSON con los nombres
+        color='Total Muertes',            # Columna que define el color
+        color_continuous_scale="Viridis", # Escala de color
+        mapbox_style="carto-positron",    # Estilo del mapa base
+        zoom=4,                           # Nivel de zoom inicial
+        center={"lat": 4.5709, "lon": -74.2973}, # Centro del mapa (Colombia)
         opacity=0.7,
         title="Total de Muertes por Departamento (2019)"
     )
     fig.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
     return dcc.Graph(figure=fig)
 
-# Gráfico 2: Líneas - Muertes por Mes
+# ==============================================================================
+# REQUISITO 2: Gráfico de líneas
+# Representación del total de muertes por mes.
+# ==============================================================================
 def create_line_chart(df):
     if df.empty:
         return dcc.Graph(figure=px.bar(title="Datos no disponibles"))
         
+    # 1. Agrupamos por 'MES' y contamos el total
     deaths_by_month = df.groupby('MES').size().reset_index(name='Total Muertes')
-    deaths_by_month = deaths_by_month.sort_values(by='MES')
+    deaths_by_month = deaths_by_month.sort_values(by='MES') # Ordenamos por mes
+    
+    # 2. Mapeamos los números de mes a nombres para mayor claridad
     meses = {1: 'Ene', 2: 'Feb', 3: 'Mar', 4: 'Abr', 5: 'May', 6: 'Jun', 
              7: 'Jul', 8: 'Ago', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dic'}
     deaths_by_month['MES_NOMBRE'] = deaths_by_month['MES'].map(meses)
     
+    # 3. Creamos el gráfico de líneas
     fig = px.line(
         deaths_by_month,
         x='MES_NOMBRE',
         y='Total Muertes',
         title="Total de Muertes por Mes (2019)",
-        markers=True
+        markers=True # Añadimos puntos en cada mes
     )
     fig.update_layout(xaxis_title="Mes", yaxis_title="Total Muertes")
     return dcc.Graph(figure=fig)
 
-# Gráfico 3: Barras - 5 Ciudades más Violentas (Homicidios X95)
+# ==============================================================================
+# REQUISITO 3: Gráfico de barras
+# Visualización de las 5 ciudades más violentas (códigos X95).
+# ==============================================================================
 def create_violent_cities_chart(df):
     if df.empty:
         return dcc.Graph(figure=px.bar(title="Datos no disponibles"))
         
-    # Filtramos por códigos de homicidio (Asalto con disparo de arma de fuego)
+    # 1. Filtramos los datos solo para homicidios con código X95
     homicides_df = df[df['COD_MUERTE'].str.startswith('X95', na=False)]
     
+    # 2. Agrupamos por 'MUNICIPIO' y contamos los homicidios
     violent_cities = homicides_df.groupby('MUNICIPIO').size().reset_index(name='Total Homicidios (X95)')
+    
+    # 3. Ordenamos de mayor a menor y tomamos los 5 primeros (top 5)
     top_5_violent = violent_cities.sort_values(by='Total Homicidios (X95)', ascending=False).head(5)
     
+    # 4. Creamos el gráfico de barras
     fig = px.bar(
         top_5_violent,
         x='MUNICIPIO',
@@ -141,17 +170,24 @@ def create_violent_cities_chart(df):
     fig.update_layout(xaxis_title="Ciudad", yaxis_title="Total Homicidios")
     return dcc.Graph(figure=fig)
 
-# Gráfico 4: Pie - 10 Ciudades con Menor Mortalidad
+# ==============================================================================
+# REQUISITO 4: Gráfico circular
+# Muestra las 10 ciudades con menor índice de mortalidad.
+# ==============================================================================
 def create_low_mortality_chart(df):
     if df.empty:
         return dcc.Graph(figure=px.bar(title="Datos no disponibles"))
         
+    # 1. Agrupamos por 'MUNICIPIO' y contamos el total de muertes
     deaths_by_city = df.groupby('MUNICIPIO').size().reset_index(name='Total Muertes')
-    # Filtramos municipios con 0 muertes si los hubiera
+    
+    # 2. Filtramos municipios con 0 muertes (si existen) para no distorsionar el gráfico
     deaths_by_city = deaths_by_city[deaths_by_city['Total Muertes'] > 0] 
     
+    # 3. Ordenamos de menor a mayor (ascending=True) y tomamos las 10 primeras
     bottom_10_cities = deaths_by_city.sort_values(by='Total Muertes', ascending=True).head(10)
     
+    # 4. Creamos el gráfico circular (pie chart)
     fig = px.pie(
         bottom_10_cities,
         names='MUNICIPIO',
@@ -161,13 +197,18 @@ def create_low_mortality_chart(df):
     fig.update_traces(textposition='inside', textinfo='percent+label')
     return dcc.Graph(figure=fig)
 
-# Gráfico 5: Tabla - 10 Principales Causas de Muerte
+# ==============================================================================
+# REQUISITO 5: Tabla
+# Listado de las 10 principales causas de muerte (código, nombre, total).
+# ==============================================================================
 def create_causes_table(df_mort, df_codes):
     if df_mort.empty or df_codes.empty:
         return html.Div("Datos no disponibles para la tabla de causas.")
         
+    # 1. Contamos el total de muertes por 'COD_MUERTE'
     deaths_by_cause = df_mort.groupby('COD_MUERTE').size().reset_index(name='Total')
     
+    # 2. Unimos (merge) con df_codes para obtener el nombre de la causa
     merged_causes = pd.merge(
         deaths_by_cause,
         df_codes[['COD_MUERTE', 'CAUSA_MUERTE_NOMBRE']],
@@ -175,16 +216,20 @@ def create_causes_table(df_mort, df_codes):
         how='left'
     )
     
+    # 3. Limpiamos valores nulos si un código no tiene nombre
     merged_causes['CAUSA_MUERTE_NOMBRE'] = merged_causes['CAUSA_MUERTE_NOMBRE'].fillna('Desconocida o sin especificar')
     
+    # 4. Ordenamos de mayor a menor y tomamos las 10 principales
     top_10_causes = merged_causes.sort_values(by='Total', ascending=False).head(10)
     
+    # 5. Renombramos las columnas para la tabla final
     top_10_causes = top_10_causes.rename(columns={
         'COD_MUERTE': 'Código CIE-10',
         'CAUSA_MUERTE_NOMBRE': 'Causa de Muerte',
         'Total': 'Total Casos'
     })
     
+    # 6. Creamos el componente Dash DataTable
     return dash_table.DataTable(
         data=top_10_causes.to_dict('records'),
         columns=[{'name': i, 'id': i} for i in top_10_causes.columns],
@@ -200,32 +245,42 @@ def create_causes_table(df_mort, df_codes):
         },
     )
 
-# Gráfico 6: Barras Apiladas - Muertes por Sexo en cada Departamento
+# ==============================================================================
+# REQUISITO 6: Gráfico de barras apiladas
+# Comparación del total de muertes por sexo en cada departamento.
+# ==============================================================================
 def create_sex_by_dept_chart(df):
     if df.empty:
         return dcc.Graph(figure=px.bar(title="Datos no disponibles"))
         
+    # 1. Agrupamos por 'DEPARTAMENTO' y 'SEXO'
     deaths_by_dept_sex = df.groupby(['DEPARTAMENTO', 'SEXO']).size().reset_index(name='Total')
     
+    # 2. Mapeamos los códigos de 'SEXO' a nombres
     sex_map = {1: 'Hombre', 2: 'Mujer', 9: 'Desconocido'}
     deaths_by_dept_sex['SEXO_NOMBRE'] = deaths_by_dept_sex['SEXO'].map(sex_map).fillna('Desconocido')
     
+    # 3. Creamos el gráfico de barras, usando 'color' para apilar
     fig = px.bar(
         deaths_by_dept_sex,
         x='DEPARTAMENTO',
         y='Total',
-        color='SEXO_NOMBRE',
+        color='SEXO_NOMBRE',       # Esto crea las secciones apiladas
         title="Total de Muertes por Sexo y Departamento",
-        barmode='stack'
+        barmode='stack'            # Modo 'apilado'
     )
     fig.update_layout(xaxis_title="Departamento", yaxis_title="Total Muertes", xaxis_tickangle=-45)
     return dcc.Graph(figure=fig)
 
-# Gráfico 7: Histograma - Distribución de Muertes por Grupo de Edad
+# ==============================================================================
+# REQUISITO 7: Histograma
+# Distribución de muertes por GRUPO_EDAD1.
+# ==============================================================================
 def create_age_histogram(df):
     if df.empty:
         return dcc.Graph(figure=px.bar(title="Datos no disponibles"))
         
+    # 1. Creamos el diccionario que mapea códigos (0-29) a las categorías de edad
     age_map = {
         0: 'Mortalidad neonatal', 1: 'Mortalidad neonatal', 2: 'Mortalidad neonatal', 3: 'Mortalidad neonatal', 4: 'Mortalidad neonatal',
         5: 'Mortalidad infantil', 6: 'Mortalidad infantil',
@@ -240,18 +295,21 @@ def create_age_histogram(df):
         29: 'Edad desconocida'
     }
     
+    # 2. Creamos una lista con el orden deseado para el eje X
     category_order = [
         'Mortalidad neonatal', 'Mortalidad infantil', 'Primera infancia',
         'Niñez', 'Adolescencia', 'Juventud', 'Adultez temprana',
         'Adultez intermedia', 'Vejez', 'Longevidad', 'Edad desconocida'
     ]
     
+    # 3. Aplicamos el mapeo para crear la nueva columna categórica
     df['GRUPO_EDAD_CAT'] = df['GRUPO_EDAD1'].map(age_map)
     
+    # 4. Contamos los valores para cada categoría
     age_distribution = df['GRUPO_EDAD_CAT'].value_counts().reset_index()
     age_distribution.columns = ['Grupo de Edad', 'Total Muertes']
     
-    # Convertir a tipo categórico para ordenar correctamente
+    # 5. Aplicamos el orden categórico para que el gráfico se muestre correctamente
     age_distribution['Grupo de Edad'] = pd.Categorical(
         age_distribution['Grupo de Edad'],
         categories=category_order,
@@ -259,6 +317,7 @@ def create_age_histogram(df):
     )
     age_distribution = age_distribution.sort_values('Grupo de Edad')
     
+    # 6. Creamos el gráfico de barras (que funciona como histograma para categorías)
     fig = px.bar(
         age_distribution,
         x='Grupo de Edad',
@@ -271,9 +330,10 @@ def create_age_histogram(df):
 
 # --- 3. Inicialización de la App Dash ---
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-server = app.server 
+server = app.server # Necesario para el despliegue en Gunicorn
 
 # --- 4. Layout de la Aplicación ---
+# Se define la estructura de la página web usando Dash Bootstrap Components (dbc)
 app.layout = dbc.Container(
     fluid=True,
     children=[
@@ -288,7 +348,7 @@ app.layout = dbc.Container(
             )
         ),
         
-        # Fila 1: Mapa y Gráfico de Líneas
+        # Fila 1: Mapa (Requisito 1) y Gráfico de Líneas (Requisito 2)
         dbc.Row(
             [
                 dbc.Col(create_map(df_full), width=12, md=7, className="mb-4"),
@@ -297,7 +357,7 @@ app.layout = dbc.Container(
             align="center"
         ),
         
-        # Fila 2: Barras Apiladas (Sexo) e Histograma (Edad)
+        # Fila 2: Barras Apiladas (Requisito 6) e Histograma (Requisito 7)
         dbc.Row(
             [
                 dbc.Col(create_sex_by_dept_chart(df_full), width=12, lg=7, className="mb-4"),
@@ -306,7 +366,7 @@ app.layout = dbc.Container(
             align="center"
         ),
         
-        # Fila 3: Tabla de Causas
+        # Fila 3: Tabla de Causas (Requisito 5)
         dbc.Row(
             dbc.Col(
                 [
@@ -318,7 +378,7 @@ app.layout = dbc.Container(
             )
         ),
         
-        # Fila 4: Ciudades Violentas y Menor Mortalidad
+        # Fila 4: Ciudades Violentas (Requisito 3) y Menor Mortalidad (Requisito 4)
         dbc.Row(
             [
                 dbc.Col(create_violent_cities_chart(df_full), width=12, md=6, className="mb-4"),
@@ -332,4 +392,3 @@ app.layout = dbc.Container(
 # --- 5. Ejecución de la App ---
 if __name__ == '__main__':
     app.run_server(debug=True)
-
