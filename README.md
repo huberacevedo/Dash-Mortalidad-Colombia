@@ -1,12 +1,15 @@
 # Dashboard Interactivo de Mortalidad en Colombia (2019)
 
 Este repositorio contiene la Actividad 4: Aplicación web interactiva para el análisis de mortalidad en Colombia para la asignatura "Aplicaciones I" de la Maestría en Inteligencia Artificial. Es un dashboard web interactivo construido para analizar las estadísticas de mortalidad en Colombia durante el año 2019, utilizando datos oficiales del DANE.
-Presentado por:
+
+## Presentado por:
 Huber Duvier Acevedo Hernandez
 Laura Ximena Tirado Rairan
-URL de la aplicación desplegada:
+
+## URL de la aplicación desplegada:
 https://dash-mortalidad-colombia-5y92.onrender.com/
-GitHub: 
+
+## GitHub: 
 https://github.com/huberacevedo/Dash-Mortalidad-Colombia/tree/main
 
 
